@@ -134,7 +134,6 @@
     }
     #sp-close:active { background: rgba(255,255,255,.15); }
 
-    /* Continent filter */
     #cont-bar {
       display: flex; gap: 6px;
       padding: 10px 12px;
@@ -155,7 +154,6 @@
     .cf.on { background: var(--accent); color: #fff; border-color: var(--accent); }
     .cf:active:not(.on) { background: rgba(79,158,255,.1); }
 
-    /* Letter strip */
     #letter-bar {
       display: flex; gap: 1px;
       padding: 8px 10px;
@@ -177,17 +175,9 @@
     .lf.on { background: rgba(79,158,255,.2); color: var(--accent); }
     .lf:active:not(.on) { background: rgba(255,255,255,.07); }
 
-    /* Count */
-    #sp-count {
-      font-size: 11px; color: var(--muted);
-      padding: 6px 14px 4px; flex-shrink: 0;
-    }
+    #sp-count { font-size: 11px; color: var(--muted); padding: 6px 14px 4px; flex-shrink: 0; }
 
-    /* Country list */
-    #clist {
-      flex: 1; overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-    }
+    #clist { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
     .cli {
       display: flex; align-items: center; gap: 10px;
@@ -319,7 +309,7 @@
 
 <div id="loader">
   <div class="ring"></div>
-  <p id="load-msg">Loading globe…</p>
+  <p id="load-msg">Loading countries…</p>
 </div>
 
 <div id="globe-wrap"></div>
@@ -344,9 +334,7 @@
   <div id="cont-bar">
     <button class="cf on" data-cont="">All</button>
   </div>
-  <div id="letter-bar">
-    <!-- A–Z built by JS -->
-  </div>
+  <div id="letter-bar"></div>
   <div id="sp-count"></div>
   <div id="clist"></div>
 </div>
@@ -362,7 +350,6 @@
   <div id="panel-handle"></div>
   <button id="close-btn">×</button>
   <div id="panel-body">
-
     <div id="chead">
       <img id="cflag" src="" alt="Flag">
       <div id="cinfo">
@@ -371,52 +358,31 @@
         <div id="cregion"></div>
       </div>
     </div>
-
     <div class="sgrid">
-      <div class="scard">
-        <div class="slabel">Capital</div>
-        <div class="sval" id="v-capital">—</div>
-      </div>
-      <div class="scard">
-        <div class="slabel">Population</div>
-        <div class="sval" id="v-pop">—</div>
-      </div>
-      <div class="scard">
-        <div class="slabel">Area</div>
-        <div class="sval" id="v-area">—</div>
-      </div>
-      <div class="scard">
-        <div class="slabel">Subregion</div>
-        <div class="sval" id="v-sub">—</div>
-      </div>
+      <div class="scard"><div class="slabel">Capital</div><div class="sval" id="v-capital">—</div></div>
+      <div class="scard"><div class="slabel">Population</div><div class="sval" id="v-pop">—</div></div>
+      <div class="scard"><div class="slabel">Area</div><div class="sval" id="v-area">—</div></div>
+      <div class="scard"><div class="slabel">Subregion</div><div class="sval" id="v-sub">—</div></div>
     </div>
-
     <div class="sgrid">
-      <div class="scard wide">
-        <div class="slabel">Languages</div>
-        <div class="tags" id="v-langs"></div>
-      </div>
-      <div class="scard wide">
-        <div class="slabel">Currencies</div>
-        <div class="tags" id="v-currs"></div>
-      </div>
-      <div class="scard wide">
-        <div class="slabel">Borders</div>
-        <div class="tags" id="v-borders"></div>
-      </div>
+      <div class="scard wide"><div class="slabel">Languages</div><div class="tags" id="v-langs"></div></div>
+      <div class="scard wide"><div class="slabel">Currencies</div><div class="tags" id="v-currs"></div></div>
+      <div class="scard wide"><div class="slabel">Borders</div><div class="tags" id="v-borders"></div></div>
     </div>
-
   </div>
 </div>
 
 <script>
+// Use /independent?status=true so the server filters; frees the 10th field for latlng
 const GEOJSON_URL = 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson';
-const RC_ALL_URL = 'https://restcountries.com/v3.1/all?fields=name,cca2,capital,region,population,area,languages,currencies,borders,independent';
+const RC_ALL_URL  = 'https://restcountries.com/v3.1/independent?status=true&fields=name,cca2,capital,region,population,area,languages,currencies,borders,latlng';
 
-let globe = null;
-let features = [];
-let rcMap = new Map();
-let activeFeature = null;
+let globe         = null;
+let features      = [];
+let rcMap         = new Map();   // cca2.toLowerCase() → country data
+let activeFeature = null;        // currently highlighted GeoJSON polygon
+let activeMarker  = null;        // currently highlighted point marker
+let markerCountries = [];        // countries with no polygon (shown as dots)
 let hoveredFeature = null;
 
 // ── Helpers ──────────────────────────────────────────────
@@ -433,21 +399,28 @@ const fmt = n => !n ? '—'
 const flagUrl   = c2 => `https://flagcdn.com/w320/${c2}.png`;
 const flagSmUrl = c2 => `https://flagcdn.com/20x15/${c2}.png`;
 
+// ── Polygon visual state ─────────────────────────────────
 function polyColor(feat) {
   if (feat === activeFeature)  return 'rgba(79,158,255,0.55)';
   if (feat === hoveredFeature) return 'rgba(79,158,255,0.22)';
   return 'rgba(180,210,255,0.04)';
 }
-function polyAlt(feat) {
-  return feat === activeFeature ? 0.014 : 0.001;
-}
-function polyStroke(feat) {
-  return feat === activeFeature ? 'rgba(255,210,50,0.95)' : 'rgba(100,160,255,0.38)';
-}
+function polyAlt(feat)    { return feat === activeFeature ? 0.014 : 0.001; }
+function polyStroke(feat) { return feat === activeFeature ? 'rgba(255,210,50,0.95)' : 'rgba(100,160,255,0.38)'; }
+
 function updatePolygons() {
   globe.polygonCapColor(polyColor).polygonAltitude(polyAlt).polygonStrokeColor(polyStroke);
 }
 
+// ── Marker visual state ──────────────────────────────────
+function markerColor(d) {
+  return d === activeMarker ? 'rgba(255,210,50,0.95)' : 'rgba(79,158,255,0.75)';
+}
+function updateMarkers() {
+  if (globe) globe.pointColor(markerColor);
+}
+
+// ── Geometry helpers ─────────────────────────────────────
 function countryAltitude(feat) {
   const lngs = [], lats = [];
   const { type, coordinates } = feat.geometry;
@@ -455,10 +428,7 @@ function countryAltitude(feat) {
   if (type === 'Polygon') collect(coordinates[0]);
   else coordinates.forEach(poly => collect(poly[0]));
   if (!lngs.length) return 1.5;
-  const span = Math.max(
-    Math.max(...lngs) - Math.min(...lngs),
-    Math.max(...lats) - Math.min(...lats)
-  );
+  const span = Math.max(Math.max(...lngs) - Math.min(...lngs), Math.max(...lats) - Math.min(...lats));
   return Math.max(0.4, Math.min(3.0, span / 45));
 }
 
@@ -486,19 +456,26 @@ function buildGlobe(geoJson) {
     .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
     .atmosphereColor('#4a9eff')
     .atmosphereAltitude(0.15)
+    // Polygons
     .polygonsData(geoJson.features)
     .polygonGeoJsonGeometry(d => d.geometry)
     .polygonCapColor(polyColor)
     .polygonSideColor(() => 'rgba(79,158,255,0.07)')
     .polygonStrokeColor(polyStroke)
     .polygonAltitude(polyAlt)
-    .polygonLabel(d => {
-      const n = getName(d.properties);
-      return `<span style="font:13px/1 -apple-system,sans-serif;padding:5px 10px;background:rgba(4,6,15,.92);border:1px solid rgba(79,158,255,.3);border-radius:8px;color:#dde3f8;display:inline-block">${n}</span>`;
-    })
+    .polygonLabel(d => label(getName(d.properties)))
     .onPolygonHover(feat => { hoveredFeature = feat; globe.polygonCapColor(polyColor); })
     .onPolygonClick(feat => selectCountry(feat))
-    .polygonsTransitionDuration(300);
+    .polygonsTransitionDuration(300)
+    // Point markers (filled after buildSidePanel)
+    .pointsData([])
+    .pointLat(d => d.latlng[0])
+    .pointLng(d => d.latlng[1])
+    .pointColor(markerColor)
+    .pointRadius(0.35)
+    .pointAltitude(0.02)
+    .pointLabel(d => label(d.name.common))
+    .onPointClick(country => selectMarkerCountry(country));
 
   const ctrl = globe.controls();
   ctrl.autoRotate = true;
@@ -509,47 +486,78 @@ function buildGlobe(geoJson) {
   window.addEventListener('resize', () => globe.width(innerWidth).height(innerHeight));
 }
 
-// ── Navigate to country (list panel — highlight only, no info panel) ─────
+function label(text) {
+  return `<span style="font:13px/1 -apple-system,sans-serif;padding:5px 10px;background:rgba(4,6,15,.92);border:1px solid rgba(79,158,255,.3);border-radius:8px;color:#dde3f8;display:inline-block">${text}</span>`;
+}
+
+// ── Polygon country selection ────────────────────────────
+
+// Called from side panel list → highlight only, no info panel
 function highlightCountry(feat) {
   if (!feat) return;
   activeFeature = feat;
+  activeMarker  = null;
   updatePolygons();
+  updateMarkers();
   globe.controls().autoRotate = false;
   const ctr = centroid(feat);
   globe.pointOfView({ lat: ctr.lat, lng: ctr.lng, altitude: countryAltitude(feat) }, 900);
   highlightInList(feat);
-  // Close info panel if it was open for a previous country
   document.getElementById('cpanel').classList.remove('open');
 }
 
-// ── Select country (globe click — highlight + open info panel) ────────────
+// Called from globe click → highlight + open info panel
 function selectCountry(feat) {
   if (!feat) return;
   activeFeature = feat;
+  activeMarker  = null;
   updatePolygons();
+  updateMarkers();
   globe.controls().autoRotate = false;
-
   const ctr = centroid(feat);
   globe.pointOfView({ lat: ctr.lat, lng: ctr.lng, altitude: 1.9 }, 900);
-
   highlightInList(feat);
 
-  const props = feat.properties;
-  const iso2 = getIso2(props);
+  const iso2 = getIso2(feat.properties);
   const data = iso2 ? rcMap.get(iso2) : null;
-
-  if (data) {
-    populatePanel(data, props);
-  } else {
-    setEl('cname', getName(props));
-    setEl('cnative', '');
-    setEl('cregion', props.REGION_UN || '');
+  if (data) populatePanel(data, feat.properties);
+  else {
+    setEl('cname', getName(feat.properties));
+    setEl('cnative', ''); setEl('cregion', feat.properties.REGION_UN || '');
     document.getElementById('cflag').src = '';
     clearPlaceholders();
   }
   openInfoPanel();
 }
 
+// ── Marker country selection ─────────────────────────────
+
+// Called from side panel list → highlight + zoom, no info panel
+function highlightMarkerCountry(country) {
+  activeFeature = null;
+  activeMarker  = country;
+  updatePolygons();
+  updateMarkers();
+  globe.controls().autoRotate = false;
+  globe.pointOfView({ lat: country.latlng[0], lng: country.latlng[1], altitude: 0.4 }, 900);
+  highlightInList(country);
+  document.getElementById('cpanel').classList.remove('open');
+}
+
+// Called from globe marker click → highlight + open info panel
+function selectMarkerCountry(country) {
+  activeFeature = null;
+  activeMarker  = country;
+  updatePolygons();
+  updateMarkers();
+  globe.controls().autoRotate = false;
+  globe.pointOfView({ lat: country.latlng[0], lng: country.latlng[1], altitude: 0.4 }, 900);
+  highlightInList(country);
+  populatePanel(country, {});
+  openInfoPanel();
+}
+
+// ── Panel content ────────────────────────────────────────
 function clearPlaceholders() {
   ['v-capital','v-pop','v-area','v-sub'].forEach(id => setEl(id, '—'));
   ['v-langs','v-currs','v-borders'].forEach(id => {
@@ -559,18 +567,14 @@ function clearPlaceholders() {
 
 function populatePanel(data, props) {
   const code2 = data.cca2?.toLowerCase();
-  if (code2) {
-    const flagEl = document.getElementById('cflag');
-    flagEl.src = flagUrl(code2);
-    flagEl.alt = data.name?.common || '';
-  }
+  if (code2) { const f = document.getElementById('cflag'); f.src = flagUrl(code2); f.alt = data.name?.common || ''; }
 
   setEl('cname', data.name?.common || getName(props));
   const native = Object.values(data.name?.nativeName || {})[0]?.common || '';
   setEl('cnative', native && native !== data.name?.common ? native : '');
+
   const subregion = props.SUBREGION || '';
   setEl('cregion', [data.region, subregion].filter(Boolean).join(' › '));
-
   setEl('v-capital', data.capital?.[0] || '—');
   setEl('v-pop', fmt(data.population));
   setEl('v-area', data.area ? fmt(data.area) + ' km²' : '—');
@@ -585,12 +589,8 @@ function populatePanel(data, props) {
     const f = features.find(f => getIso3(f.properties) === code);
     return { label: f ? getName(f.properties) : code, onClick: f ? () => selectCountry(f) : null };
   });
-
-  if (borders.length) {
-    fillTags('v-borders', borders, true);
-  } else {
-    document.getElementById('v-borders').innerHTML = '<span class="tag">Island nation 🏝</span>';
-  }
+  if (borders.length) fillTags('v-borders', borders, true);
+  else document.getElementById('v-borders').innerHTML = '<span class="tag">Island nation 🏝</span>';
 }
 
 function fillTags(id, items, clickable = false) {
@@ -611,7 +611,6 @@ function openInfoPanel() {
   document.getElementById('hint').classList.add('gone');
   document.getElementById('cpanel').classList.add('open');
 }
-
 function closeInfoPanel() {
   document.getElementById('cpanel').classList.remove('open');
 }
@@ -620,58 +619,45 @@ function closeInfoPanel() {
   let y0 = 0;
   const panel = document.getElementById('cpanel');
   panel.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
-  panel.addEventListener('touchend', e => {
-    if (e.changedTouches[0].clientY - y0 > 65) closeInfoPanel();
-  }, { passive: true });
+  panel.addEventListener('touchend',   e => { if (e.changedTouches[0].clientY - y0 > 65) closeInfoPanel(); }, { passive: true });
 })();
 
 // ── Side panel ───────────────────────────────────────────
-let listItems = [];
-let activeCont = '';
+let listItems   = [];
+let activeCont  = '';
 let activeLetter = '';
 
 function buildSidePanel() {
-  // Source of truth: rcMap (independent sovereign nations from API), sorted alphabetically
-  const countries = [...rcMap.values()].sort((a, b) =>
-    a.name.common.localeCompare(b.name.common)
-  );
+  const countries = [...rcMap.values()].sort((a, b) => a.name.common.localeCompare(b.name.common));
 
-  // Continent buttons built from API region values
+  // Continent buttons from API region values
   const contBar = document.getElementById('cont-bar');
-  const continents = [...new Set(countries.map(c => c.region || '').filter(Boolean))].sort();
-  continents.forEach(cont => {
+  [...new Set(countries.map(c => c.region || '').filter(Boolean))].sort().forEach(cont => {
     const btn = document.createElement('button');
-    btn.className = 'cf';
-    btn.textContent = cont;
-    btn.dataset.cont = cont;
+    btn.className = 'cf'; btn.textContent = cont; btn.dataset.cont = cont;
     contBar.appendChild(btn);
   });
 
-  // Letter buttons A–Z
+  // A–Z letter buttons
   const letterBar = document.getElementById('letter-bar');
   'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(letter => {
     const btn = document.createElement('button');
-    btn.className = 'lf';
-    btn.textContent = letter;
-    btn.dataset.letter = letter;
+    btn.className = 'lf'; btn.textContent = letter; btn.dataset.letter = letter;
     letterBar.appendChild(btn);
   });
 
-  // Pre-build a lookup from iso2 → GeoJSON feature for globe highlighting
+  // Map iso2 → GeoJSON feature for polygon countries
   const featByIso2 = new Map();
-  features.forEach(f => {
-    const iso2 = getIso2(f.properties);
-    if (iso2) featByIso2.set(iso2, f);
-  });
+  features.forEach(f => { const iso2 = getIso2(f.properties); if (iso2) featByIso2.set(iso2, f); });
 
-  // Country list
+  // Country rows
   const clist = document.getElementById('clist');
   countries.forEach(country => {
-    const name = country.name.common;
-    const iso2 = country.cca2.toLowerCase();
+    const name      = country.name.common;
+    const iso2      = country.cca2.toLowerCase();
     const continent = country.region || '';
-    const letter = name[0]?.toUpperCase() || '';
-    const feat = featByIso2.get(iso2) || null;
+    const letter    = name[0]?.toUpperCase() || '';
+    const feat      = featByIso2.get(iso2) || null;
 
     const el = document.createElement('div');
     el.className = 'cli';
@@ -686,13 +672,19 @@ function buildSidePanel() {
     nameEl.textContent = name;
     el.appendChild(nameEl);
 
-    if (feat) el.addEventListener('click', () => highlightCountry(feat));
+    if (feat) {
+      el.addEventListener('click', () => highlightCountry(feat));
+    } else {
+      // No polygon → point marker
+      markerCountries.push(country);
+      el.addEventListener('click', () => highlightMarkerCountry(country));
+    }
 
     clist.appendChild(el);
-    listItems.push({ el, feat, continent, letter });
+    listItems.push({ el, feat, country, continent, letter });
   });
 
-  // Continent filter events
+  // Continent filter
   document.querySelectorAll('.cf').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.cf').forEach(b => b.classList.remove('on'));
@@ -702,16 +694,14 @@ function buildSidePanel() {
     });
   });
 
-  // Letter filter events (click active letter to deselect)
+  // Letter filter (click active letter to deselect)
   document.querySelectorAll('.lf').forEach(btn => {
     btn.addEventListener('click', () => {
       if (activeLetter === btn.dataset.letter) {
-        btn.classList.remove('on');
-        activeLetter = '';
+        btn.classList.remove('on'); activeLetter = '';
       } else {
         document.querySelectorAll('.lf').forEach(b => b.classList.remove('on'));
-        btn.classList.add('on');
-        activeLetter = btn.dataset.letter;
+        btn.classList.add('on'); activeLetter = btn.dataset.letter;
       }
       applyFilters();
     });
@@ -721,42 +711,70 @@ function buildSidePanel() {
 }
 
 function makeFlagPh() {
-  const d = document.createElement('div');
-  d.className = 'cli-flag-ph';
-  return d;
+  const d = document.createElement('div'); d.className = 'cli-flag-ph'; return d;
 }
 
 function applyFilters() {
   let visible = 0;
   listItems.forEach(({ el, continent, letter }) => {
-    const show = (!activeCont || continent === activeCont)
-              && (!activeLetter || letter === activeLetter);
+    const show = (!activeCont || continent === activeCont) && (!activeLetter || letter === activeLetter);
     el.style.display = show ? 'flex' : 'none';
     if (show) visible++;
   });
   document.getElementById('sp-count').textContent =
-    visible === listItems.length
-      ? `${visible} countries`
-      : `${visible} of ${listItems.length} countries`;
+    visible === listItems.length ? `${visible} countries` : `${visible} of ${listItems.length} countries`;
 }
 
-function highlightInList(feat) {
-  listItems.forEach(({ el, feat: f }) => el.classList.toggle('sel', f === feat));
-  const item = listItems.find(i => i.feat === feat);
+// Accepts a GeoJSON feature (polygon countries) or a country object (marker countries)
+function highlightInList(ref) {
+  listItems.forEach(item => {
+    item.el.classList.toggle('sel', item.feat === ref || item.country === ref);
+  });
+  const item = listItems.find(i => i.feat === ref || i.country === ref);
   if (item && item.el.style.display !== 'none') {
     item.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 }
 
-function openSidePanel() {
-  document.getElementById('spanel').classList.add('open');
-  document.getElementById('backdrop').classList.add('on');
+function openSidePanel()  { document.getElementById('spanel').classList.add('open');    document.getElementById('backdrop').classList.add('on'); }
+function closeSidePanel() { document.getElementById('spanel').classList.remove('open'); document.getElementById('backdrop').classList.remove('on'); }
+
+document.getElementById('list-btn').addEventListener('click', openSidePanel);
+document.getElementById('sp-close').addEventListener('click', closeSidePanel);
+document.getElementById('backdrop').addEventListener('click', closeSidePanel);
+
+// ── Search ───────────────────────────────────────────────
+function setupSearch() {
+  const input = document.getElementById('search-in');
+  const dd    = document.getElementById('dropdown');
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    if (q.length < 2) { dd.style.display = 'none'; return; }
+    const hits = features.filter(f => getName(f.properties).toLowerCase().includes(q)).slice(0, 7);
+    if (!hits.length) { dd.style.display = 'none'; return; }
+
+    dd.innerHTML = hits.map((f, i) => {
+      const n  = getName(f.properties);
+      const c2 = getIso2(f.properties);
+      const flagHtml = c2 ? `<img src="${flagSmUrl(c2)}" onerror="this.style.display='none'" alt="">` : '';
+      return `<div class="ditem" data-i="${i}">${flagHtml}<span>${n}</span></div>`;
+    }).join('');
+
+    dd.querySelectorAll('.ditem').forEach((el, i) => {
+      el.addEventListener('click', () => {
+        selectCountry(hits[i]);
+        input.value = ''; dd.style.display = 'none'; input.blur();
+      });
+    });
+    dd.style.display = 'block';
+  });
+
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('#searchbox')) dd.style.display = 'none'; });
 }
 
-function closeSidePanel() {
-  document.getElementById('spanel').classList.remove('open');
-  document.getElementById('backdrop').classList.remove('on');
-}
+// ── Boot ─────────────────────────────────────────────────
+document.getElementById('close-btn').addEventListener('click', closeInfoPanel);
 
 document.getElementById('zoom-in').addEventListener('click', () => {
   const pov = globe.pointOfView();
@@ -767,72 +785,25 @@ document.getElementById('zoom-out').addEventListener('click', () => {
   globe.pointOfView({ ...pov, altitude: Math.min(6, pov.altitude / 0.65) }, 300);
 });
 
-document.getElementById('list-btn').addEventListener('click', openSidePanel);
-document.getElementById('sp-close').addEventListener('click', closeSidePanel);
-document.getElementById('backdrop').addEventListener('click', closeSidePanel);
-
-// ── Search ───────────────────────────────────────────────
-function setupSearch() {
-  const input = document.getElementById('search-in');
-  const dd = document.getElementById('dropdown');
-
-  input.addEventListener('input', () => {
-    const q = input.value.trim().toLowerCase();
-    if (q.length < 2) { dd.style.display = 'none'; return; }
-    const hits = features
-      .filter(f => getName(f.properties).toLowerCase().includes(q))
-      .slice(0, 7);
-    if (!hits.length) { dd.style.display = 'none'; return; }
-
-    dd.innerHTML = hits.map((f, i) => {
-      const n = getName(f.properties);
-      const c2 = getIso2(f.properties);
-      const flagHtml = c2
-        ? `<img src="${flagSmUrl(c2)}" onerror="this.style.display='none'" alt="">`
-        : '';
-      return `<div class="ditem" data-i="${i}">${flagHtml}<span>${n}</span></div>`;
-    }).join('');
-
-    dd.querySelectorAll('.ditem').forEach((el, i) => {
-      el.addEventListener('click', () => {
-        selectCountry(hits[i]);
-        input.value = '';
-        dd.style.display = 'none';
-        input.blur();
-      });
-    });
-    dd.style.display = 'block';
-  });
-
-  document.addEventListener('pointerdown', e => {
-    if (!e.target.closest('#searchbox')) dd.style.display = 'none';
-  });
-}
-
-// ── Boot ─────────────────────────────────────────────────
-document.getElementById('close-btn').addEventListener('click', closeInfoPanel);
-
 async function main() {
   try {
     setEl('load-msg', 'Loading countries…');
-    const [geoRes, rcRes] = await Promise.all([
-      fetch(GEOJSON_URL),
-      fetch(RC_ALL_URL)
-    ]);
+    const [geoRes, rcRes] = await Promise.all([fetch(GEOJSON_URL), fetch(RC_ALL_URL)]);
     if (!geoRes.ok) throw new Error('GeoJSON fetch failed');
     if (!rcRes.ok)  throw new Error('RestCountries fetch failed');
 
     const [geoJson, rcAll] = await Promise.all([geoRes.json(), rcRes.json()]);
     features = geoJson.features;
-    rcAll
-      .filter(c => c.independent === true)
-      .forEach(c => { if (c.cca2) rcMap.set(c.cca2.toLowerCase(), c); });
+    rcAll.forEach(c => { if (c.cca2) rcMap.set(c.cca2.toLowerCase(), c); });
 
     setEl('load-msg', 'Building globe…');
     buildGlobe(geoJson);
     buildSidePanel();
-    setupSearch();
 
+    // Now that markerCountries is populated, pass it to the globe
+    globe.pointsData(markerCountries);
+
+    setupSearch();
     setTimeout(() => document.getElementById('loader').classList.add('fade'), 500);
     setTimeout(() => document.getElementById('hint').classList.add('gone'), 6000);
   } catch (err) {
