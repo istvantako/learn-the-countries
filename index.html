@@ -579,12 +579,6 @@ function openInfoPanel() {
 
 function closeInfoPanel() {
   document.getElementById('cpanel').classList.remove('open');
-  activeFeature = null;
-  if (globe) {
-    updatePolygons();
-    globe.controls().autoRotate = true;
-  }
-  listItems.forEach(({ el }) => el.classList.remove('sel'));
 }
 
 (function () {
