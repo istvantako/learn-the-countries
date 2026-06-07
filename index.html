@@ -383,10 +383,11 @@
 
 <script>
 const GEOJSON_URL = 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson';
-const RC_URL = 'https://restcountries.com/v3.1/alpha/';
+const RC_ALL_URL = 'https://restcountries.com/v3.1/all';
 
 let globe = null;
 let features = [];
+let rcMap = new Map();
 let activeFeature = null;
 let hoveredFeature = null;
 
@@ -480,7 +481,7 @@ function highlightCountry(feat) {
 }
 
 // ── Select country (globe click — highlight + open info panel) ────────────
-async function selectCountry(feat) {
+function selectCountry(feat) {
   if (!feat) return;
   activeFeature = feat;
   updatePolygons();
@@ -492,28 +493,19 @@ async function selectCountry(feat) {
   highlightInList(feat);
 
   const props = feat.properties;
-  setEl('cname', getName(props));
-  setEl('cnative', '');
-  setEl('cregion', props.REGION_UN || '');
-  document.getElementById('cflag').src = '';
-  ['v-capital','v-pop','v-area','v-sub'].forEach(id => setEl(id, '…'));
-  ['v-langs','v-currs','v-borders'].forEach(id => {
-    document.getElementById(id).innerHTML =
-      '<span style="color:var(--muted);font-size:12px">Loading…</span>';
-  });
-  openInfoPanel();
-
   const code = getIso3(props);
-  if (!code) { clearPlaceholders(); return; }
+  const data = code ? rcMap.get(code) : null;
 
-  try {
-    const res = await fetch(RC_URL + code);
-    if (!res.ok) throw new Error('not found');
-    const [data] = await res.json();
+  if (data) {
     populatePanel(data, props);
-  } catch {
+  } else {
+    setEl('cname', getName(props));
+    setEl('cnative', '');
+    setEl('cregion', props.REGION_UN || '');
+    document.getElementById('cflag').src = '';
     clearPlaceholders();
   }
+  openInfoPanel();
 }
 
 function clearPlaceholders() {
@@ -767,10 +759,17 @@ document.getElementById('close-btn').addEventListener('click', closeInfoPanel);
 
 async function main() {
   try {
-    const res = await fetch(GEOJSON_URL);
-    if (!res.ok) throw new Error('GeoJSON fetch failed');
-    const geoJson = await res.json();
+    setEl('load-msg', 'Loading countries…');
+    const [geoRes, rcRes] = await Promise.all([
+      fetch(GEOJSON_URL),
+      fetch(RC_ALL_URL)
+    ]);
+    if (!geoRes.ok) throw new Error('GeoJSON fetch failed');
+    if (!rcRes.ok)  throw new Error('RestCountries fetch failed');
+
+    const [geoJson, rcAll] = await Promise.all([geoRes.json(), rcRes.json()]);
     features = geoJson.features;
+    rcAll.forEach(c => { if (c.cca3) rcMap.set(c.cca3, c); });
 
     setEl('load-msg', 'Building globe…');
     buildGlobe(geoJson);
