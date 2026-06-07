@@ -387,7 +387,11 @@ let hoveredFeature = null;
 
 // ── Helpers ──────────────────────────────────────────────
 const getIso3 = p => (p.ISO_A3 && p.ISO_A3 !== '-99') ? p.ISO_A3 : (p.ADM0_A3 || null);
-const getIso2 = p => (p.ISO_A2 && p.ISO_A2 !== '-99') ? p.ISO_A2.toLowerCase() : null;
+const getIso2 = p => {
+  if (p.ISO_A2   && p.ISO_A2   !== '-99') return p.ISO_A2.toLowerCase();
+  if (p.ISO_A2_EH && p.ISO_A2_EH !== '-99') return p.ISO_A2_EH.toLowerCase();
+  return null;
+};
 const getName = p => p.NAME || p.ADMIN || p.name || '?';
 
 const fmt = n => !n ? '—'
