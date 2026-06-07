@@ -39,6 +39,18 @@
       z-index: 20;
     }
 
+    .icon-btn {
+      width: 38px; height: 38px; flex-shrink: 0;
+      background: rgba(255,255,255,.07);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text); font-size: 18px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .icon-btn:active { background: rgba(79,158,255,.15); }
+
     #logo { font-size: 22px; flex-shrink: 0; line-height: 1; }
 
     #searchbox { flex: 1; position: relative; }
@@ -49,43 +61,30 @@
       background: rgba(255,255,255,.07);
       border: 1px solid var(--border);
       border-radius: 20px;
-      color: var(--text);
-      font-size: 14px;
-      outline: none;
-      -webkit-appearance: none;
+      color: var(--text); font-size: 14px;
+      outline: none; -webkit-appearance: none; appearance: none;
       transition: border-color .2s;
     }
     #search-in:focus { border-color: rgba(79,158,255,.55); }
     #search-in::placeholder { color: var(--muted); }
 
     #search-icon {
-      position: absolute;
-      left: 11px; top: 50%;
+      position: absolute; left: 11px; top: 50%;
       transform: translateY(-50%);
-      font-size: 13px;
-      color: var(--muted);
-      pointer-events: none;
+      font-size: 13px; color: var(--muted); pointer-events: none;
     }
 
     #dropdown {
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0; right: 0;
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0;
       background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      overflow: hidden;
-      max-height: 240px;
-      overflow-y: auto;
-      display: none;
-      z-index: 30;
+      border: 1px solid var(--border); border-radius: 14px;
+      overflow: hidden; max-height: 240px; overflow-y: auto;
+      display: none; z-index: 30;
       box-shadow: 0 12px 40px rgba(0,0,0,.6);
     }
 
     .ditem {
-      padding: 11px 14px;
-      cursor: pointer;
-      font-size: 14px;
+      padding: 11px 14px; cursor: pointer; font-size: 14px;
       display: flex; align-items: center; gap: 10px;
       border-bottom: 1px solid rgba(79,158,255,.08);
     }
@@ -93,34 +92,136 @@
     .ditem:active { background: rgba(79,158,255,.1); }
     .ditem img { width: 20px; height: 13px; border-radius: 2px; flex-shrink: 0; object-fit: cover; }
 
+    /* ── Backdrop ── */
+    #backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 35;
+      opacity: 0; pointer-events: none;
+      transition: opacity .3s;
+    }
+    #backdrop.on { opacity: 1; pointer-events: auto; }
+
+    /* ── Side panel ── */
+    #spanel {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: min(320px, 90vw);
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      transform: translateX(-100%);
+      transition: transform .3s cubic-bezier(.33,1,.68,1);
+      z-index: 40;
+      display: flex; flex-direction: column;
+      padding-top: max(0px, env(safe-area-inset-top));
+      padding-bottom: max(0px, env(safe-area-inset-bottom));
+    }
+    #spanel.open { transform: translateX(0); }
+
+    #sp-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 14px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #sp-title { font-size: 15px; font-weight: 700; }
+
+    #sp-close {
+      width: 28px; height: 28px;
+      background: rgba(255,255,255,.08); border: none; border-radius: 50%;
+      color: var(--text); font-size: 18px; line-height: 28px; text-align: center;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    #sp-close:active { background: rgba(255,255,255,.15); }
+
+    /* Continent filter */
+    #cont-bar {
+      display: flex; gap: 6px;
+      padding: 10px 12px;
+      overflow-x: auto; scrollbar-width: none;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    #cont-bar::-webkit-scrollbar { display: none; }
+
+    .cf {
+      padding: 5px 12px; border-radius: 14px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      font-size: 12px; white-space: nowrap; cursor: pointer; flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s, color .15s;
+    }
+    .cf.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .cf:active:not(.on) { background: rgba(79,158,255,.1); }
+
+    /* Letter strip */
+    #letter-bar {
+      display: flex; gap: 1px;
+      padding: 8px 10px;
+      overflow-x: auto; scrollbar-width: none;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    #letter-bar::-webkit-scrollbar { display: none; }
+
+    .lf {
+      min-width: 24px; height: 26px;
+      border-radius: 5px; border: none;
+      background: transparent; color: var(--muted);
+      font-size: 11px; font-weight: 600;
+      cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .lf.on { background: rgba(79,158,255,.2); color: var(--accent); }
+    .lf:active:not(.on) { background: rgba(255,255,255,.07); }
+
+    /* Count */
+    #sp-count {
+      font-size: 11px; color: var(--muted);
+      padding: 6px 14px 4px; flex-shrink: 0;
+    }
+
+    /* Country list */
+    #clist {
+      flex: 1; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .cli {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; cursor: pointer;
+      border-bottom: 1px solid rgba(79,158,255,.06);
+      font-size: 13px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cli:active { background: rgba(79,158,255,.1); }
+    .cli.sel { background: rgba(79,158,255,.13); color: var(--accent); font-weight: 600; }
+    .cli img { width: 24px; height: 16px; border-radius: 2px; object-fit: cover; flex-shrink: 0; }
+    .cli-flag-ph { width: 24px; height: 16px; border-radius: 2px; background: rgba(255,255,255,.05); flex-shrink: 0; }
+
     /* ── Hint ── */
     #hint {
-      position: fixed;
-      bottom: 30px; left: 50%;
+      position: fixed; bottom: 30px; left: 50%;
       transform: translateX(-50%);
-      background: rgba(4,6,15,.72);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 7px 16px;
-      font-size: 12px; color: var(--muted);
-      white-space: nowrap;
+      background: rgba(4,6,15,.72); border: 1px solid var(--border);
+      border-radius: 20px; padding: 7px 16px;
+      font-size: 12px; color: var(--muted); white-space: nowrap;
       z-index: 15; pointer-events: none;
       opacity: 1; transition: opacity .5s;
     }
     #hint.gone { opacity: 0; }
 
-    /* ── Country panel ── */
+    /* ── Country info panel ── */
     #cpanel {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
+      position: fixed; bottom: 0; left: 0; right: 0;
       background: var(--panel);
-      border-top: 1px solid var(--border);
-      border-radius: 22px 22px 0 0;
+      border-top: 1px solid var(--border); border-radius: 22px 22px 0 0;
       transform: translateY(105%);
       transition: transform .35s cubic-bezier(.33,1,.68,1);
       z-index: 25;
-      max-height: 80vh;
-      overflow-y: auto;
+      max-height: 80vh; overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       padding-bottom: max(16px, env(safe-area-inset-bottom));
     }
@@ -128,17 +229,14 @@
 
     #panel-handle {
       width: 36px; height: 4px;
-      background: rgba(255,255,255,.15);
-      border-radius: 2px;
+      background: rgba(255,255,255,.15); border-radius: 2px;
       margin: 10px auto 0;
     }
 
     #close-btn {
-      position: absolute;
-      top: 12px; right: 14px;
+      position: absolute; top: 12px; right: 14px;
       width: 30px; height: 30px;
-      background: rgba(255,255,255,.08);
-      border: none; border-radius: 50%;
+      background: rgba(255,255,255,.08); border: none; border-radius: 50%;
       color: var(--text); font-size: 20px;
       cursor: pointer; line-height: 30px; text-align: center;
       -webkit-tap-highlight-color: transparent;
@@ -147,18 +245,11 @@
 
     #panel-body { padding: 12px 16px 8px; }
 
-    /* Country header */
-    #chead {
-      display: flex; align-items: flex-start; gap: 14px;
-      margin-bottom: 14px;
-    }
+    #chead { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
 
     #cflag {
-      width: 72px; height: 48px;
-      border-radius: 6px; object-fit: cover;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.05);
-      flex-shrink: 0;
+      width: 72px; height: 48px; border-radius: 6px; object-fit: cover;
+      border: 1px solid var(--border); background: rgba(255,255,255,.05); flex-shrink: 0;
     }
 
     #cinfo { flex: 1; min-width: 0; }
@@ -166,60 +257,38 @@
     #cnative { font-size: 13px; color: var(--muted); margin-top: 2px; }
     #cregion { font-size: 11px; color: var(--accent); margin-top: 5px; font-weight: 500; }
 
-    /* Stat grid */
-    .sgrid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px; margin-bottom: 8px;
-    }
+    .sgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 
-    .scard {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 11px;
-    }
+    .scard { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 11px; }
     .scard.wide { grid-column: 1 / -1; }
 
-    .slabel {
-      font-size: 10px; color: var(--muted);
-      text-transform: uppercase; letter-spacing: .5px;
-      margin-bottom: 4px;
-    }
+    .slabel { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
     .sval { font-size: 14px; font-weight: 600; }
 
-    /* Tags */
     .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
 
     .tag {
       padding: 3px 9px;
-      background: rgba(79,158,255,.08);
-      border: 1px solid rgba(79,158,255,.2);
-      border-radius: 10px;
-      font-size: 12px; color: var(--text);
+      background: rgba(79,158,255,.08); border: 1px solid rgba(79,158,255,.2);
+      border-radius: 10px; font-size: 12px; color: var(--text);
     }
     .tag.link { cursor: pointer; }
     .tag.link:active { background: rgba(79,158,255,.28); }
 
     /* ── Loader ── */
     #loader {
-      position: fixed; inset: 0;
-      background: var(--bg);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
       z-index: 100; transition: opacity .5s;
     }
     #loader.fade { opacity: 0; pointer-events: none; }
 
     .ring {
       width: 48px; height: 48px;
-      border: 3px solid rgba(79,158,255,.2);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin .85s linear infinite;
+      border: 3px solid rgba(79,158,255,.2); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin .85s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
     #load-msg { margin-top: 14px; color: var(--muted); font-size: 13px; }
   </style>
 </head>
@@ -233,6 +302,7 @@
 <div id="globe-wrap"></div>
 
 <header id="topbar">
+  <button class="icon-btn" id="list-btn" title="Country list">☰</button>
   <span id="logo">🌍</span>
   <div id="searchbox">
     <span id="search-icon">⌕</span>
@@ -240,6 +310,23 @@
     <div id="dropdown"></div>
   </div>
 </header>
+
+<div id="backdrop"></div>
+
+<div id="spanel">
+  <div id="sp-head">
+    <span id="sp-title">Countries</span>
+    <button id="sp-close">×</button>
+  </div>
+  <div id="cont-bar">
+    <button class="cf on" data-cont="">All</button>
+  </div>
+  <div id="letter-bar">
+    <!-- A–Z built by JS -->
+  </div>
+  <div id="sp-count"></div>
+  <div id="clist"></div>
+</div>
 
 <p id="hint">Tap a country to explore</p>
 
@@ -314,7 +401,7 @@ const fmt = n => !n ? '—'
   : n >= 1e3 ? Math.round(n / 1e3).toLocaleString() + ' K'
   : Number(n).toLocaleString();
 
-const flagUrl  = c2 => `https://flagcdn.com/w320/${c2}.png`;
+const flagUrl   = c2 => `https://flagcdn.com/w320/${c2}.png`;
 const flagSmUrl = c2 => `https://flagcdn.com/20x15/${c2}.png`;
 
 function polyColor(feat) {
@@ -328,12 +415,9 @@ function polyAlt(feat) {
 
 function centroid(feat) {
   const { type, coordinates } = feat.geometry;
-  let ring;
-  if (type === 'Polygon') {
-    ring = coordinates[0];
-  } else {
-    ring = coordinates.reduce((a, b) => a[0].length > b[0].length ? a : b)[0];
-  }
+  const ring = type === 'Polygon'
+    ? coordinates[0]
+    : coordinates.reduce((a, b) => a[0].length > b[0].length ? a : b)[0];
   if (!ring || !ring.length) return { lat: 0, lng: 0 };
   return {
     lat: ring.reduce((s, c) => s + c[1], 0) / ring.length,
@@ -341,9 +425,7 @@ function centroid(feat) {
   };
 }
 
-function setEl(id, text) {
-  document.getElementById(id).textContent = text;
-}
+function setEl(id, text) { document.getElementById(id).textContent = text; }
 
 // ── Globe ────────────────────────────────────────────────
 function buildGlobe(geoJson) {
@@ -365,10 +447,7 @@ function buildGlobe(geoJson) {
       const n = getName(d.properties);
       return `<span style="font:13px/1 -apple-system,sans-serif;padding:5px 10px;background:rgba(4,6,15,.92);border:1px solid rgba(79,158,255,.3);border-radius:8px;color:#dde3f8;display:inline-block">${n}</span>`;
     })
-    .onPolygonHover(feat => {
-      hoveredFeature = feat;
-      globe.polygonCapColor(polyColor);
-    })
+    .onPolygonHover(feat => { hoveredFeature = feat; globe.polygonCapColor(polyColor); })
     .onPolygonClick(feat => selectCountry(feat))
     .polygonsTransitionDuration(300);
 
@@ -391,7 +470,8 @@ async function selectCountry(feat) {
   const ctr = centroid(feat);
   globe.pointOfView({ lat: ctr.lat, lng: ctr.lng, altitude: 1.9 }, 900);
 
-  // Open panel with placeholder content immediately
+  highlightInList(feat);
+
   const props = feat.properties;
   setEl('cname', getName(props));
   setEl('cnative', '');
@@ -402,13 +482,10 @@ async function selectCountry(feat) {
     document.getElementById(id).innerHTML =
       '<span style="color:var(--muted);font-size:12px">Loading…</span>';
   });
-  openPanel();
+  openInfoPanel();
 
   const code = getIso3(props);
-  if (!code) {
-    clearPlaceholders();
-    return;
-  }
+  if (!code) { clearPlaceholders(); return; }
 
   try {
     const res = await fetch(RC_URL + code);
@@ -450,16 +527,10 @@ function populatePanel(data, props) {
     label: `${c.name}${c.symbol ? ' ' + c.symbol : ''}`
   })));
 
-  const borders = (data.borders || []).map(code => ({
-    label: (() => {
-      const f = features.find(f => getIso3(f.properties) === code);
-      return f ? getName(f.properties) : code;
-    })(),
-    onClick: (() => {
-      const f = features.find(f => getIso3(f.properties) === code);
-      return f ? () => selectCountry(f) : null;
-    })()
-  }));
+  const borders = (data.borders || []).map(code => {
+    const f = features.find(f => getIso3(f.properties) === code);
+    return { label: f ? getName(f.properties) : code, onClick: f ? () => selectCountry(f) : null };
+  });
 
   if (borders.length) {
     fillTags('v-borders', borders, true);
@@ -481,30 +552,164 @@ function fillTags(id, items, clickable = false) {
   });
 }
 
-// ── Panel ────────────────────────────────────────────────
-function openPanel() {
+// ── Info panel (bottom sheet) ────────────────────────────
+function openInfoPanel() {
   document.getElementById('hint').classList.add('gone');
   document.getElementById('cpanel').classList.add('open');
 }
 
-function closePanel() {
+function closeInfoPanel() {
   document.getElementById('cpanel').classList.remove('open');
   activeFeature = null;
   if (globe) {
     globe.polygonCapColor(polyColor).polygonAltitude(polyAlt);
     globe.controls().autoRotate = true;
   }
+  listItems.forEach(({ el }) => el.classList.remove('sel'));
 }
 
-// Swipe-down to close
 (function () {
   let y0 = 0;
   const panel = document.getElementById('cpanel');
   panel.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
   panel.addEventListener('touchend', e => {
-    if (e.changedTouches[0].clientY - y0 > 65) closePanel();
+    if (e.changedTouches[0].clientY - y0 > 65) closeInfoPanel();
   }, { passive: true });
 })();
+
+// ── Side panel ───────────────────────────────────────────
+let listItems = [];
+let activeCont = '';
+let activeLetter = '';
+
+function buildSidePanel() {
+  // Continent buttons (dynamic from data)
+  const contBar = document.getElementById('cont-bar');
+  const continents = [...new Set(
+    features.map(f => f.properties.REGION_UN || '').filter(Boolean)
+  )].sort();
+  continents.forEach(cont => {
+    const btn = document.createElement('button');
+    btn.className = 'cf';
+    btn.textContent = cont;
+    btn.dataset.cont = cont;
+    contBar.appendChild(btn);
+  });
+
+  // Letter buttons A–Z
+  const letterBar = document.getElementById('letter-bar');
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(letter => {
+    const btn = document.createElement('button');
+    btn.className = 'lf';
+    btn.textContent = letter;
+    btn.dataset.letter = letter;
+    letterBar.appendChild(btn);
+  });
+
+  // Country list (sorted alphabetically)
+  const clist = document.getElementById('clist');
+  const sorted = [...features].sort((a, b) =>
+    getName(a.properties).localeCompare(getName(b.properties))
+  );
+
+  sorted.forEach(feat => {
+    const name = getName(feat.properties);
+    const iso2 = getIso2(feat.properties);
+    const continent = feat.properties.REGION_UN || '';
+    const letter = name[0]?.toUpperCase() || '';
+
+    const el = document.createElement('div');
+    el.className = 'cli';
+
+    if (iso2) {
+      const img = document.createElement('img');
+      img.src = flagSmUrl(iso2);
+      img.onerror = () => { img.replaceWith(makeFlagPh()); };
+      img.alt = '';
+      el.appendChild(img);
+    } else {
+      el.appendChild(makeFlagPh());
+    }
+
+    const nameEl = document.createElement('span');
+    nameEl.textContent = name;
+    el.appendChild(nameEl);
+
+    el.addEventListener('click', () => selectCountry(feat));
+
+    clist.appendChild(el);
+    listItems.push({ el, feat, continent, letter });
+  });
+
+  // Continent filter events
+  document.querySelectorAll('.cf').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.cf').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      activeCont = btn.dataset.cont;
+      applyFilters();
+    });
+  });
+
+  // Letter filter events (click active letter to deselect)
+  document.querySelectorAll('.lf').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (activeLetter === btn.dataset.letter) {
+        btn.classList.remove('on');
+        activeLetter = '';
+      } else {
+        document.querySelectorAll('.lf').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        activeLetter = btn.dataset.letter;
+      }
+      applyFilters();
+    });
+  });
+
+  applyFilters();
+}
+
+function makeFlagPh() {
+  const d = document.createElement('div');
+  d.className = 'cli-flag-ph';
+  return d;
+}
+
+function applyFilters() {
+  let visible = 0;
+  listItems.forEach(({ el, continent, letter }) => {
+    const show = (!activeCont || continent === activeCont)
+              && (!activeLetter || letter === activeLetter);
+    el.style.display = show ? 'flex' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('sp-count').textContent =
+    visible === listItems.length
+      ? `${visible} countries`
+      : `${visible} of ${listItems.length} countries`;
+}
+
+function highlightInList(feat) {
+  listItems.forEach(({ el, feat: f }) => el.classList.toggle('sel', f === feat));
+  const item = listItems.find(i => i.feat === feat);
+  if (item && item.el.style.display !== 'none') {
+    item.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+function openSidePanel() {
+  document.getElementById('spanel').classList.add('open');
+  document.getElementById('backdrop').classList.add('on');
+}
+
+function closeSidePanel() {
+  document.getElementById('spanel').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('on');
+}
+
+document.getElementById('list-btn').addEventListener('click', openSidePanel);
+document.getElementById('sp-close').addEventListener('click', closeSidePanel);
+document.getElementById('backdrop').addEventListener('click', closeSidePanel);
 
 // ── Search ───────────────────────────────────────────────
 function setupSearch() {
@@ -545,7 +750,7 @@ function setupSearch() {
 }
 
 // ── Boot ─────────────────────────────────────────────────
-document.getElementById('close-btn').addEventListener('click', closePanel);
+document.getElementById('close-btn').addEventListener('click', closeInfoPanel);
 
 async function main() {
   try {
@@ -556,6 +761,7 @@ async function main() {
 
     setEl('load-msg', 'Building globe…');
     buildGlobe(geoJson);
+    buildSidePanel();
     setupSearch();
 
     setTimeout(() => document.getElementById('loader').classList.add('fade'), 500);
