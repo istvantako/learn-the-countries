@@ -589,11 +589,14 @@ let activeCont = '';
 let activeLetter = '';
 
 function buildSidePanel() {
-  // Continent buttons (dynamic from data)
+  // Source of truth: rcMap (independent sovereign nations from API), sorted alphabetically
+  const countries = [...rcMap.values()].sort((a, b) =>
+    a.name.common.localeCompare(b.name.common)
+  );
+
+  // Continent buttons built from API region values
   const contBar = document.getElementById('cont-bar');
-  const continents = [...new Set(
-    features.map(f => f.properties.REGION_UN || '').filter(Boolean)
-  )].sort();
+  const continents = [...new Set(countries.map(c => c.region || '').filter(Boolean))].sort();
   continents.forEach(cont => {
     const btn = document.createElement('button');
     btn.className = 'cf';
@@ -612,36 +615,36 @@ function buildSidePanel() {
     letterBar.appendChild(btn);
   });
 
-  // Country list (sorted alphabetically)
-  const clist = document.getElementById('clist');
-  const sorted = [...features].sort((a, b) =>
-    getName(a.properties).localeCompare(getName(b.properties))
-  );
+  // Pre-build a lookup from iso2 → GeoJSON feature for globe highlighting
+  const featByIso2 = new Map();
+  features.forEach(f => {
+    const iso2 = getIso2(f.properties);
+    if (iso2) featByIso2.set(iso2, f);
+  });
 
-  sorted.forEach(feat => {
-    const name = getName(feat.properties);
-    const iso2 = getIso2(feat.properties);
-    const continent = feat.properties.REGION_UN || '';
+  // Country list
+  const clist = document.getElementById('clist');
+  countries.forEach(country => {
+    const name = country.name.common;
+    const iso2 = country.cca2.toLowerCase();
+    const continent = country.region || '';
     const letter = name[0]?.toUpperCase() || '';
+    const feat = featByIso2.get(iso2) || null;
 
     const el = document.createElement('div');
     el.className = 'cli';
 
-    if (iso2) {
-      const img = document.createElement('img');
-      img.src = flagSmUrl(iso2);
-      img.onerror = () => { img.replaceWith(makeFlagPh()); };
-      img.alt = '';
-      el.appendChild(img);
-    } else {
-      el.appendChild(makeFlagPh());
-    }
+    const img = document.createElement('img');
+    img.src = flagSmUrl(iso2);
+    img.onerror = () => { img.replaceWith(makeFlagPh()); };
+    img.alt = '';
+    el.appendChild(img);
 
     const nameEl = document.createElement('span');
     nameEl.textContent = name;
     el.appendChild(nameEl);
 
-    el.addEventListener('click', () => highlightCountry(feat));
+    if (feat) el.addEventListener('click', () => highlightCountry(feat));
 
     clist.appendChild(el);
     listItems.push({ el, feat, continent, letter });
