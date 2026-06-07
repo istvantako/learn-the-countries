@@ -206,7 +206,7 @@
       position: fixed;
       bottom: 30px; right: 16px;
       display: flex; flex-direction: column; gap: 6px;
-      z-index: 15;
+      z-index: 45;
     }
 
     .zoom-btn {
@@ -448,6 +448,20 @@ function updatePolygons() {
   globe.polygonCapColor(polyColor).polygonAltitude(polyAlt).polygonStrokeColor(polyStroke);
 }
 
+function countryAltitude(feat) {
+  const lngs = [], lats = [];
+  const { type, coordinates } = feat.geometry;
+  const collect = ring => ring.forEach(([lng, lat]) => { lngs.push(lng); lats.push(lat); });
+  if (type === 'Polygon') collect(coordinates[0]);
+  else coordinates.forEach(poly => collect(poly[0]));
+  if (!lngs.length) return 1.5;
+  const span = Math.max(
+    Math.max(...lngs) - Math.min(...lngs),
+    Math.max(...lats) - Math.min(...lats)
+  );
+  return Math.max(0.4, Math.min(3.0, span / 45));
+}
+
 function centroid(feat) {
   const { type, coordinates } = feat.geometry;
   const ring = type === 'Polygon'
@@ -502,7 +516,7 @@ function highlightCountry(feat) {
   updatePolygons();
   globe.controls().autoRotate = false;
   const ctr = centroid(feat);
-  globe.pointOfView({ lat: ctr.lat, lng: ctr.lng, altitude: 1.9 }, 900);
+  globe.pointOfView({ lat: ctr.lat, lng: ctr.lng, altitude: countryAltitude(feat) }, 900);
   highlightInList(feat);
   // Close info panel if it was open for a previous country
   document.getElementById('cpanel').classList.remove('open');
