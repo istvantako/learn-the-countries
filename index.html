@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>WorldView — Explore Countries</title>
+  <script src="https://unpkg.com/globe.gl"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #04060f;
+      --accent: #4f9eff;
+      --panel: rgba(6, 9, 22, 0.97);
+      --text: #dde3f8;
+      --muted: #6b7aaa;
+      --border: rgba(79, 158, 255, 0.18);
+      --card: rgba(255, 255, 255, 0.04);
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+    }
+
+    #globe-wrap { position: fixed; inset: 0; }
+
+    /* ── Top bar ── */
+    #topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 10px 12px;
+      padding-top: max(10px, env(safe-area-inset-top));
+      display: flex; align-items: center; gap: 10px;
+      background: linear-gradient(to bottom, rgba(4,6,15,.9) 0%, transparent 100%);
+      z-index: 20;
+    }
+
+    #logo { font-size: 22px; flex-shrink: 0; line-height: 1; }
+
+    #searchbox { flex: 1; position: relative; }
+
+    #search-in {
+      width: 100%;
+      padding: 9px 12px 9px 33px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      -webkit-appearance: none;
+      transition: border-color .2s;
+    }
+    #search-in:focus { border-color: rgba(79,158,255,.55); }
+    #search-in::placeholder { color: var(--muted); }
+
+    #search-icon {
+      position: absolute;
+      left: 11px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    #dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0; right: 0;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      max-height: 240px;
+      overflow-y: auto;
+      display: none;
+      z-index: 30;
+      box-shadow: 0 12px 40px rgba(0,0,0,.6);
+    }
+
+    .ditem {
+      padding: 11px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid rgba(79,158,255,.08);
+    }
+    .ditem:last-child { border-bottom: none; }
+    .ditem:active { background: rgba(79,158,255,.1); }
+    .ditem img { width: 20px; height: 13px; border-radius: 2px; flex-shrink: 0; object-fit: cover; }
+
+    /* ── Hint ── */
+    #hint {
+      position: fixed;
+      bottom: 30px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(4,6,15,.72);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 7px 16px;
+      font-size: 12px; color: var(--muted);
+      white-space: nowrap;
+      z-index: 15; pointer-events: none;
+      opacity: 1; transition: opacity .5s;
+    }
+    #hint.gone { opacity: 0; }
+
+    /* ── Country panel ── */
+    #cpanel {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      border-radius: 22px 22px 0 0;
+      transform: translateY(105%);
+      transition: transform .35s cubic-bezier(.33,1,.68,1);
+      z-index: 25;
+      max-height: 80vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+    #cpanel.open { transform: translateY(0); }
+
+    #panel-handle {
+      width: 36px; height: 4px;
+      background: rgba(255,255,255,.15);
+      border-radius: 2px;
+      margin: 10px auto 0;
+    }
+
+    #close-btn {
+      position: absolute;
+      top: 12px; right: 14px;
+      width: 30px; height: 30px;
+      background: rgba(255,255,255,.08);
+      border: none; border-radius: 50%;
+      color: var(--text); font-size: 20px;
+      cursor: pointer; line-height: 30px; text-align: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #close-btn:active { background: rgba(255,255,255,.15); }
+
+    #panel-body { padding: 12px 16px 8px; }
+
+    /* Country header */
+    #chead {
+      display: flex; align-items: flex-start; gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    #cflag {
+      width: 72px; height: 48px;
+      border-radius: 6px; object-fit: cover;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.05);
+      flex-shrink: 0;
+    }
+
+    #cinfo { flex: 1; min-width: 0; }
+    #cname { font-size: 20px; font-weight: 700; line-height: 1.2; word-break: break-word; }
+    #cnative { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    #cregion { font-size: 11px; color: var(--accent); margin-top: 5px; font-weight: 500; }
+
+    /* Stat grid */
+    .sgrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px; margin-bottom: 8px;
+    }
+
+    .scard {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 11px;
+    }
+    .scard.wide { grid-column: 1 / -1; }
+
+    .slabel {
+      font-size: 10px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .5px;
+      margin-bottom: 4px;
+    }
+    .sval { font-size: 14px; font-weight: 600; }
+
+    /* Tags */
+    .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+
+    .tag {
+      padding: 3px 9px;
+      background: rgba(79,158,255,.08);
+      border: 1px solid rgba(79,158,255,.2);
+      border-radius: 10px;
+      font-size: 12px; color: var(--text);
+    }
+    .tag.link { cursor: pointer; }
+    .tag.link:active { background: rgba(79,158,255,.28); }
+
+    /* ── Loader ── */
+    #loader {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100; transition: opacity .5s;
+    }
+    #loader.fade { opacity: 0; pointer-events: none; }
+
+    .ring {
+      width: 48px; height: 48px;
+      border: 3px solid rgba(79,158,255,.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .85s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #load-msg { margin-top: 14px; color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="ring"></div>
+  <p id="load-msg">Loading globe…</p>
+</div>
+
+<div id="globe-wrap"></div>
+
+<header id="topbar">
+  <span id="logo">🌍</span>
+  <div id="searchbox">
+    <span id="search-icon">⌕</span>
+    <input id="search-in" type="text" placeholder="Search countries…" autocomplete="off" spellcheck="false">
+    <div id="dropdown"></div>
+  </div>
+</header>
+
+<p id="hint">Tap a country to explore</p>
+
+<div id="cpanel">
+  <div id="panel-handle"></div>
+  <button id="close-btn">×</button>
+  <div id="panel-body">
+
+    <div id="chead">
+      <img id="cflag" src="" alt="Flag">
+      <div id="cinfo">
+        <div id="cname"></div>
+        <div id="cnative"></div>
+        <div id="cregion"></div>
+      </div>
+    </div>
+
+    <div class="sgrid">
+      <div class="scard">
+        <div class="slabel">Capital</div>
+        <div class="sval" id="v-capital">—</div>
+      </div>
+      <div class="scard">
+        <div class="slabel">Population</div>
+        <div class="sval" id="v-pop">—</div>
+      </div>
+      <div class="scard">
+        <div class="slabel">Area</div>
+        <div class="sval" id="v-area">—</div>
+      </div>
+      <div class="scard">
+        <div class="slabel">Subregion</div>
+        <div class="sval" id="v-sub">—</div>
+      </div>
+    </div>
+
+    <div class="sgrid">
+      <div class="scard wide">
+        <div class="slabel">Languages</div>
+        <div class="tags" id="v-langs"></div>
+      </div>
+      <div class="scard wide">
+        <div class="slabel">Currencies</div>
+        <div class="tags" id="v-currs"></div>
+      </div>
+      <div class="scard wide">
+        <div class="slabel">Borders</div>
+        <div class="tags" id="v-borders"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const GEOJSON_URL = 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson';
+const RC_URL = 'https://restcountries.com/v3.1/alpha/';
+
+let globe = null;
+let features = [];
+let activeFeature = null;
+let hoveredFeature = null;
+
+// ── Helpers ──────────────────────────────────────────────
+const getIso3 = p => (p.ISO_A3 && p.ISO_A3 !== '-99') ? p.ISO_A3 : (p.ADM0_A3 || null);
+const getIso2 = p => (p.ISO_A2 && p.ISO_A2 !== '-99') ? p.ISO_A2.toLowerCase() : null;
+const getName = p => p.NAME || p.ADMIN || p.name || '?';
+
+const fmt = n => !n ? '—'
+  : n >= 1e9 ? (n / 1e9).toFixed(1) + ' B'
+  : n >= 1e6 ? (n / 1e6).toFixed(1) + ' M'
+  : n >= 1e3 ? Math.round(n / 1e3).toLocaleString() + ' K'
+  : Number(n).toLocaleString();
+
+const flagUrl  = c2 => `https://flagcdn.com/w320/${c2}.png`;
+const flagSmUrl = c2 => `https://flagcdn.com/20x15/${c2}.png`;
+
+function polyColor(feat) {
+  if (feat === activeFeature)  return 'rgba(79,158,255,0.55)';
+  if (feat === hoveredFeature) return 'rgba(79,158,255,0.22)';
+  return 'rgba(180,210,255,0.04)';
+}
+function polyAlt(feat) {
+  return feat === activeFeature ? 0.014 : 0.001;
+}
+
+function centroid(feat) {
+  const { type, coordinates } = feat.geometry;
+  let ring;
+  if (type === 'Polygon') {
+    ring = coordinates[0];
+  } else {
+    ring = coordinates.reduce((a, b) => a[0].length > b[0].length ? a : b)[0];
+  }
+  if (!ring || !ring.length) return { lat: 0, lng: 0 };
+  return {
+    lat: ring.reduce((s, c) => s + c[1], 0) / ring.length,
+    lng: ring.reduce((s, c) => s + c[0], 0) / ring.length,
+  };
+}
+
+function setEl(id, text) {
+  document.getElementById(id).textContent = text;
+}
+
+// ── Globe ────────────────────────────────────────────────
+function buildGlobe(geoJson) {
+  const wrap = document.getElementById('globe-wrap');
+  globe = Globe()(wrap)
+    .width(innerWidth).height(innerHeight)
+    .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+    .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+    .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+    .atmosphereColor('#4a9eff')
+    .atmosphereAltitude(0.15)
+    .polygonsData(geoJson.features)
+    .polygonGeoJsonGeometry(d => d.geometry)
+    .polygonCapColor(polyColor)
+    .polygonSideColor(() => 'rgba(79,158,255,0.07)')
+    .polygonStrokeColor(() => 'rgba(100,160,255,0.38)')
+    .polygonAltitude(polyAlt)
+    .polygonLabel(d => {
+      const n = getName(d.properties);
+      return `<span style="font:13px/1 -apple-system,sans-serif;padding:5px 10px;background:rgba(4,6,15,.92);border:1px solid rgba(79,158,255,.3);border-radius:8px;color:#dde3f8;display:inline-block">${n}</span>`;
+    })
+    .onPolygonHover(feat => {
+      hoveredFeature = feat;
+      globe.polygonCapColor(polyColor);
+    })
+    .onPolygonClick(feat => selectCountry(feat))
+    .polygonsTransitionDuration(300);
+
+  const ctrl = globe.controls();
+  ctrl.autoRotate = true;
+  ctrl.autoRotateSpeed = 0.45;
+  ctrl.enableDamping = true;
+  ctrl.dampingFactor = 0.1;
+
+  window.addEventListener('resize', () => globe.width(innerWidth).height(innerHeight));
+}
+
+// ── Select country ───────────────────────────────────────
+async function selectCountry(feat) {
+  if (!feat) return;
+  activeFeature = feat;
+  globe.polygonCapColor(polyColor).polygonAltitude(polyAlt);
+  globe.controls().autoRotate = false;
+
+  const ctr = centroid(feat);
+  globe.pointOfView({ lat: ctr.lat, lng: ctr.lng, altitude: 1.9 }, 900);
+
+  // Open panel with placeholder content immediately
+  const props = feat.properties;
+  setEl('cname', getName(props));
+  setEl('cnative', '');
+  setEl('cregion', props.REGION_UN || '');
+  document.getElementById('cflag').src = '';
+  ['v-capital','v-pop','v-area','v-sub'].forEach(id => setEl(id, '…'));
+  ['v-langs','v-currs','v-borders'].forEach(id => {
+    document.getElementById(id).innerHTML =
+      '<span style="color:var(--muted);font-size:12px">Loading…</span>';
+  });
+  openPanel();
+
+  const code = getIso3(props);
+  if (!code) {
+    clearPlaceholders();
+    return;
+  }
+
+  try {
+    const res = await fetch(RC_URL + code);
+    if (!res.ok) throw new Error('not found');
+    const [data] = await res.json();
+    populatePanel(data, props);
+  } catch {
+    clearPlaceholders();
+  }
+}
+
+function clearPlaceholders() {
+  ['v-capital','v-pop','v-area','v-sub'].forEach(id => setEl(id, '—'));
+  ['v-langs','v-currs','v-borders'].forEach(id => {
+    document.getElementById(id).innerHTML = '<span class="tag">—</span>';
+  });
+}
+
+function populatePanel(data, props) {
+  const code2 = data.cca2?.toLowerCase();
+  if (code2) {
+    const flagEl = document.getElementById('cflag');
+    flagEl.src = flagUrl(code2);
+    flagEl.alt = data.name?.common || '';
+  }
+
+  setEl('cname', data.name?.common || getName(props));
+  const native = Object.values(data.name?.nativeName || {})[0]?.common || '';
+  setEl('cnative', native && native !== data.name?.common ? native : '');
+  setEl('cregion', [data.region, data.subregion].filter(Boolean).join(' › '));
+
+  setEl('v-capital', data.capital?.[0] || '—');
+  setEl('v-pop', fmt(data.population));
+  setEl('v-area', data.area ? fmt(data.area) + ' km²' : '—');
+  setEl('v-sub', data.subregion || '—');
+
+  fillTags('v-langs', Object.values(data.languages || {}).map(l => ({ label: l })));
+  fillTags('v-currs', Object.entries(data.currencies || {}).map(([, c]) => ({
+    label: `${c.name}${c.symbol ? ' ' + c.symbol : ''}`
+  })));
+
+  const borders = (data.borders || []).map(code => ({
+    label: (() => {
+      const f = features.find(f => getIso3(f.properties) === code);
+      return f ? getName(f.properties) : code;
+    })(),
+    onClick: (() => {
+      const f = features.find(f => getIso3(f.properties) === code);
+      return f ? () => selectCountry(f) : null;
+    })()
+  }));
+
+  if (borders.length) {
+    fillTags('v-borders', borders, true);
+  } else {
+    document.getElementById('v-borders').innerHTML = '<span class="tag">Island nation 🏝</span>';
+  }
+}
+
+function fillTags(id, items, clickable = false) {
+  const el = document.getElementById(id);
+  el.innerHTML = '';
+  if (!items.length) { el.innerHTML = '<span class="tag">—</span>'; return; }
+  items.forEach(({ label, onClick }) => {
+    const s = document.createElement('span');
+    s.className = 'tag' + (clickable && onClick ? ' link' : '');
+    s.textContent = label;
+    if (onClick) s.addEventListener('click', onClick);
+    el.appendChild(s);
+  });
+}
+
+// ── Panel ────────────────────────────────────────────────
+function openPanel() {
+  document.getElementById('hint').classList.add('gone');
+  document.getElementById('cpanel').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('cpanel').classList.remove('open');
+  activeFeature = null;
+  if (globe) {
+    globe.polygonCapColor(polyColor).polygonAltitude(polyAlt);
+    globe.controls().autoRotate = true;
+  }
+}
+
+// Swipe-down to close
+(function () {
+  let y0 = 0;
+  const panel = document.getElementById('cpanel');
+  panel.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
+  panel.addEventListener('touchend', e => {
+    if (e.changedTouches[0].clientY - y0 > 65) closePanel();
+  }, { passive: true });
+})();
+
+// ── Search ───────────────────────────────────────────────
+function setupSearch() {
+  const input = document.getElementById('search-in');
+  const dd = document.getElementById('dropdown');
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    if (q.length < 2) { dd.style.display = 'none'; return; }
+    const hits = features
+      .filter(f => getName(f.properties).toLowerCase().includes(q))
+      .slice(0, 7);
+    if (!hits.length) { dd.style.display = 'none'; return; }
+
+    dd.innerHTML = hits.map((f, i) => {
+      const n = getName(f.properties);
+      const c2 = getIso2(f.properties);
+      const flagHtml = c2
+        ? `<img src="${flagSmUrl(c2)}" onerror="this.style.display='none'" alt="">`
+        : '';
+      return `<div class="ditem" data-i="${i}">${flagHtml}<span>${n}</span></div>`;
+    }).join('');
+
+    dd.querySelectorAll('.ditem').forEach((el, i) => {
+      el.addEventListener('click', () => {
+        selectCountry(hits[i]);
+        input.value = '';
+        dd.style.display = 'none';
+        input.blur();
+      });
+    });
+    dd.style.display = 'block';
+  });
+
+  document.addEventListener('pointerdown', e => {
+    if (!e.target.closest('#searchbox')) dd.style.display = 'none';
+  });
+}
+
+// ── Boot ─────────────────────────────────────────────────
+document.getElementById('close-btn').addEventListener('click', closePanel);
+
+async function main() {
+  try {
+    const res = await fetch(GEOJSON_URL);
+    if (!res.ok) throw new Error('GeoJSON fetch failed');
+    const geoJson = await res.json();
+    features = geoJson.features;
+
+    setEl('load-msg', 'Building globe…');
+    buildGlobe(geoJson);
+    setupSearch();
+
+    setTimeout(() => document.getElementById('loader').classList.add('fade'), 500);
+    setTimeout(() => document.getElementById('hint').classList.add('gone'), 6000);
+  } catch (err) {
+    setEl('load-msg', 'Failed to load. Please refresh.');
+    console.error(err);
+  }
+}
+
+main();
+</script>
+</body>
+</html>
