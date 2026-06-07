@@ -412,6 +412,12 @@ function polyColor(feat) {
 function polyAlt(feat) {
   return feat === activeFeature ? 0.014 : 0.001;
 }
+function polyStroke(feat) {
+  return feat === activeFeature ? 'rgba(255,210,50,0.95)' : 'rgba(100,160,255,0.38)';
+}
+function updatePolygons() {
+  globe.polygonCapColor(polyColor).polygonAltitude(polyAlt).polygonStrokeColor(polyStroke);
+}
 
 function centroid(feat) {
   const { type, coordinates } = feat.geometry;
@@ -441,7 +447,7 @@ function buildGlobe(geoJson) {
     .polygonGeoJsonGeometry(d => d.geometry)
     .polygonCapColor(polyColor)
     .polygonSideColor(() => 'rgba(79,158,255,0.07)')
-    .polygonStrokeColor(() => 'rgba(100,160,255,0.38)')
+    .polygonStrokeColor(polyStroke)
     .polygonAltitude(polyAlt)
     .polygonLabel(d => {
       const n = getName(d.properties);
@@ -460,11 +466,24 @@ function buildGlobe(geoJson) {
   window.addEventListener('resize', () => globe.width(innerWidth).height(innerHeight));
 }
 
-// ── Select country ───────────────────────────────────────
+// ── Navigate to country (list panel — highlight only, no info panel) ─────
+function highlightCountry(feat) {
+  if (!feat) return;
+  activeFeature = feat;
+  updatePolygons();
+  globe.controls().autoRotate = false;
+  const ctr = centroid(feat);
+  globe.pointOfView({ lat: ctr.lat, lng: ctr.lng, altitude: 1.9 }, 900);
+  highlightInList(feat);
+  // Close info panel if it was open for a previous country
+  document.getElementById('cpanel').classList.remove('open');
+}
+
+// ── Select country (globe click — highlight + open info panel) ────────────
 async function selectCountry(feat) {
   if (!feat) return;
   activeFeature = feat;
-  globe.polygonCapColor(polyColor).polygonAltitude(polyAlt);
+  updatePolygons();
   globe.controls().autoRotate = false;
 
   const ctr = centroid(feat);
@@ -562,7 +581,7 @@ function closeInfoPanel() {
   document.getElementById('cpanel').classList.remove('open');
   activeFeature = null;
   if (globe) {
-    globe.polygonCapColor(polyColor).polygonAltitude(polyAlt);
+    updatePolygons();
     globe.controls().autoRotate = true;
   }
   listItems.forEach(({ el }) => el.classList.remove('sel'));
@@ -635,7 +654,7 @@ function buildSidePanel() {
     nameEl.textContent = name;
     el.appendChild(nameEl);
 
-    el.addEventListener('click', () => selectCountry(feat));
+    el.addEventListener('click', () => highlightCountry(feat));
 
     clist.appendChild(el);
     listItems.push({ el, feat, continent, letter });
