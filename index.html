@@ -383,7 +383,7 @@
 
 <script>
 const GEOJSON_URL = 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson';
-const RC_ALL_URL = 'https://restcountries.com/v3.1/all';
+const RC_ALL_URL = 'https://restcountries.com/v3.1/all?fields=name,cca2,capital,region,population,area,languages,currencies,borders,independent';
 
 let globe = null;
 let features = [];
@@ -493,8 +493,8 @@ function selectCountry(feat) {
   highlightInList(feat);
 
   const props = feat.properties;
-  const code = getIso3(props);
-  const data = code ? rcMap.get(code) : null;
+  const iso2 = getIso2(props);
+  const data = iso2 ? rcMap.get(iso2) : null;
 
   if (data) {
     populatePanel(data, props);
@@ -526,12 +526,13 @@ function populatePanel(data, props) {
   setEl('cname', data.name?.common || getName(props));
   const native = Object.values(data.name?.nativeName || {})[0]?.common || '';
   setEl('cnative', native && native !== data.name?.common ? native : '');
-  setEl('cregion', [data.region, data.subregion].filter(Boolean).join(' › '));
+  const subregion = props.SUBREGION || '';
+  setEl('cregion', [data.region, subregion].filter(Boolean).join(' › '));
 
   setEl('v-capital', data.capital?.[0] || '—');
   setEl('v-pop', fmt(data.population));
   setEl('v-area', data.area ? fmt(data.area) + ' km²' : '—');
-  setEl('v-sub', data.subregion || '—');
+  setEl('v-sub', subregion || '—');
 
   fillTags('v-langs', Object.values(data.languages || {}).map(l => ({ label: l })));
   fillTags('v-currs', Object.entries(data.currencies || {}).map(([, c]) => ({
@@ -769,7 +770,9 @@ async function main() {
 
     const [geoJson, rcAll] = await Promise.all([geoRes.json(), rcRes.json()]);
     features = geoJson.features;
-    rcAll.forEach(c => { if (c.cca3) rcMap.set(c.cca3, c); });
+    rcAll
+      .filter(c => c.independent === true)
+      .forEach(c => { if (c.cca2) rcMap.set(c.cca2.toLowerCase(), c); });
 
     setEl('load-msg', 'Building globe…');
     buildGlobe(geoJson);
